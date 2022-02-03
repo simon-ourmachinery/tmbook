@@ -1,0 +1,22 @@
+[package]
+name = "tmbook"
+version = "0.1.0"
+authors = ["Simon Renger <simon@ourmachinery.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = { version = "3.0.13", features = ["derive"] }
+reqwest = "*"
+tokio = { version = "*", features = ["process"] }
+zip = "0.5"
+mdbook = "*"
+serde_json = "1.0.57"
+serde = { version = "1.0", features = ["derive"] }
+codespan-reporting = "0.11"
+toml = "*"
+regex = "*"
+pulldown-cmark = "*"
+pulldown-cmark-to-cmark = "*"
+git2 = "0.13"
