@@ -1,0 +1,25 @@
+name: Build
+
+on: workflow_dispatch
+
+jobs:
+  build-debug:
+    name: Build and Package Engine
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --all-features
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          title: "Release"
+          prerelease: false
+          files: | 
+            ./target/release/tmbook/tmbook.exe
