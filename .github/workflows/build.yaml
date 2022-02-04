@@ -22,4 +22,4 @@ jobs:
           title: "Release"
           prerelease: false
           files: | 
-            ./target/release/tmbook/tmbook.exe
+            *.exe
