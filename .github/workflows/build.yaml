@@ -19,6 +19,7 @@ jobs:
           ls
           ls target
           ls target/release
+          ls ${{github.workspace}}/target/release/tmbook.exe
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
@@ -26,4 +27,4 @@ jobs:
           title: "Release"
           prerelease: false
           files: | 
-            ${{github.workspace}}/target/release/tmbook.exe
+            ${{github.workspace}}\\target\\release\\*.exe
