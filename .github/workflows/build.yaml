@@ -26,4 +26,4 @@ jobs:
           title: "Release"
           prerelease: false
           files: | 
-            *.exe
+            ${{github.workspace}}/target/release/tmbook.exe
