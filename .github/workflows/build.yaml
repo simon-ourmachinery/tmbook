@@ -27,4 +27,4 @@ jobs:
           title: "Release"
           prerelease: false
           files: | 
-            ${{github.workspace}}\\target\\release\\*.exe
+            **/target/release/*.exe
