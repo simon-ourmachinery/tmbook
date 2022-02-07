@@ -12,7 +12,7 @@ use std::io::{self, BufRead, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-use crate::utility::get_bin_dir;
+use crate::utility::get_clang_format;
 pub struct AutoInclude;
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<std::fs::File>>>
@@ -143,9 +143,7 @@ fn process_term(
 
 fn process_clang_format(source: String) -> String {
     // TODO: fix the hardcoded path!
-    let bin_dir = get_bin_dir(None)
-        .join("clang-format-6.0.0-win64")
-        .join("clang-format-6.0.exe");
+    let bin_dir = get_clang_format(None);
     let mut child = Command::new(bin_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -183,7 +181,7 @@ fn find_term(mut chapter: String) -> String {
                     chapter = chapter.replace(&cap[0], content.as_str());
                 }
             } else {
-                eprint!("Path: {:?} does not exist!", path);
+                eprint!("Path: {:?} does not exist!\n", path);
             }
         }
     } else {

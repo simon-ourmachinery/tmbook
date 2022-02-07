@@ -5,10 +5,14 @@ use clap::{App, Arg, ArgMatches};
 use git2::Repository;
 use mdbook::errors::Error;
 use mdbook::preprocess::{CmdPreprocessor, Preprocessor};
+use mdbook_toc::Toc;
 use std::path::{Path, PathBuf};
 use std::process::{self, Stdio};
 use std::{fs, io};
-use utility::{get_bin_dir, CLANGFORMAT_URL, MDBOOK_LINKCHECK_URL, MDBOOK_TOC_URL, MDBOOK_URL};
+use utility::{
+    check_and_set_or_download_book_code_snippets, get_bin_dir, get_clang_format_url, get_mdbook,
+    get_mdbook_linkcheck_url, get_mdbook_toc_url, get_mdbook_url,
+};
 
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
@@ -20,7 +24,7 @@ mod replace_path;
 mod utility;
 use replace_path::ReplacePaths;
 
-use crate::utility::{fetch_url, unzip, TM_BOOKS_REPO, TM_BOOK_CODE_SNIPPETS};
+use crate::utility::{fetch_url, unzip, TM_BOOKS_REPO};
 
 #[derive(PartialEq)]
 enum PreType {
@@ -28,6 +32,7 @@ enum PreType {
     ReplacePaths,
     AutoInclude,
     Authors,
+    Toc,
 }
 
 pub fn make_app() -> App<'static> {
@@ -57,6 +62,20 @@ pub fn make_app() -> App<'static> {
 
     let authors = App::new("authors")
         .about("Will add all contributers to the pages")
+        .subcommand(
+            App::new("supports")
+                .arg(Arg::new("renderer").required(true))
+                .about("Check whether a renderer is supported by this preprocessor"),
+        );
+
+    let toc = App::new("toc").about("Runs mdbook-toc").subcommand(
+        App::new("supports")
+            .arg(Arg::new("renderer").required(true))
+            .about("Check whether a renderer is supported by this preprocessor"),
+    );
+
+    let linkcheck = App::new("linkcheck")
+        .about("Runs mdbook-linkcheck")
         .subcommand(
             App::new("supports")
                 .arg(Arg::new("renderer").required(true))
@@ -99,6 +118,8 @@ pub fn make_app() -> App<'static> {
         .subcommand(auto_doc)
         .subcommand(auto_include)
         .subcommand(authors)
+        .subcommand(toc)
+        .subcommand(linkcheck)
 }
 
 fn find_book(book: &String, current_dir: &Path) -> Option<PathBuf> {
@@ -131,82 +152,51 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let bin_dir = get_bin_dir(alt_path);
     {
-        let zip_name = Path::new(MDBOOK_URL).file_name().unwrap();
+        let zip_name = Path::new(get_mdbook_url()).file_name().unwrap();
         let fname = bin_dir.join(Path::new(zip_name));
         if !fname.exists() {
             println!("Download mdbook...");
-            fetch_url(MDBOOK_URL.to_string(), &fname).await.unwrap();
-            unzip(&fname, &bin_dir).unwrap();
-        }
-    }
-    {
-        let zip_name = Path::new(CLANGFORMAT_URL).file_name().unwrap();
-        let fname = bin_dir.join(Path::new(zip_name));
-        if !fname.exists() {
-            println!("Download clang format...");
-            fetch_url(CLANGFORMAT_URL.to_string(), &fname)
+            fetch_url(get_mdbook_url().to_string(), &fname)
                 .await
                 .unwrap();
             unzip(&fname, &bin_dir).unwrap();
         }
     }
     {
-        let zip_name = Path::new(MDBOOK_TOC_URL).file_name().unwrap();
+        let zip_name = Path::new(get_clang_format_url()).file_name().unwrap();
         let fname = bin_dir.join(Path::new(zip_name));
         if !fname.exists() {
-            println!("Download mdbook-toc...");
-            fetch_url(MDBOOK_TOC_URL.to_string(), &fname).await.unwrap();
+            println!("Download clang format...");
+            fetch_url(get_clang_format_url().to_string(), &fname)
+                .await
+                .unwrap();
             unzip(&fname, &bin_dir).unwrap();
         }
     }
     {
-        let zip_name = Path::new(MDBOOK_LINKCHECK_URL).file_name().unwrap();
+        let zip_name = Path::new(get_mdbook_toc_url()).file_name().unwrap();
+        let fname = bin_dir.join(Path::new(zip_name));
+        if !fname.exists() {
+            println!("Download mdbook-toc...");
+            fetch_url(get_mdbook_toc_url().to_string(), &fname)
+                .await
+                .unwrap();
+            unzip(&fname, &bin_dir).unwrap();
+        }
+    }
+    {
+        let zip_name = Path::new(get_mdbook_linkcheck_url()).file_name().unwrap();
         let fname = bin_dir.join(Path::new(zip_name));
         if !fname.exists() {
             println!("Download mdbook-linkcheck...");
-            fetch_url(MDBOOK_LINKCHECK_URL.to_string(), &fname)
+            fetch_url(get_mdbook_linkcheck_url().to_string(), &fname)
                 .await
                 .unwrap();
             unzip(&fname, &bin_dir).unwrap();
         }
     }
 
-    {
-        let path = std::env::var("TM_BOOK_CODE_SNIPPETS");
-        if path.is_err() {
-            println!("Warning: Could not find: `TM_BOOK_CODE_SNIPPETS` trying to set the var automatically");
-            let path = Path::new("./code_snippets");
-            if path.exists() {
-                std::env::set_var(
-                    "TM_BOOK_CODE_SNIPPETS",
-                    std::fs::canonicalize(&path).unwrap().as_os_str(),
-                );
-                println!(
-                    "TM_BOOK_CODE_SNIPPETS: {:?}",
-                    std::fs::canonicalize(&path).unwrap().as_os_str()
-                );
-            } else {
-                let url = TM_BOOK_CODE_SNIPPETS;
-                match Repository::clone(url, "./code_snippets") {
-                    Ok(_) => {
-                        std::env::set_var(
-                            "TM_BOOK_CODE_SNIPPETS",
-                            std::fs::canonicalize(&path).unwrap().as_os_str(),
-                        );
-                        println!(
-                            "TM_BOOK_CODE_SNIPPETS: {:?}",
-                            std::fs::canonicalize(&path).unwrap().as_os_str()
-                        );
-                    }
-                    Err(_) => {
-                        eprintln!("Cannot clone: {}", url);
-                    }
-                };
-            }
-        } else {
-            //println!("Found: `TM_BOOK_CODE_SNIPPETS`: {:?}", path.unwrap());
-        }
-    }
+    check_and_set_or_download_book_code_snippets(Path::new("./code_snippets"));
 
     if let Some(sub_matches) = matches.subcommand_matches("authors") {
         if let Some(sub_args) = sub_matches.subcommand_matches("supports") {
@@ -244,6 +234,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    if let Some(sub_matches) = matches.subcommand_matches("toc") {
+        if let Some(sub_args) = sub_matches.subcommand_matches("supports") {
+            handle_supports(PreType::Toc, sub_args);
+        } else if let Err(e) = handle_preprocessing(PreType::Toc) {
+            eprintln!("{}", e);
+            process::exit(1);
+        }
+    }
+
     if let Some(sub_args) = matches.subcommand_matches("init") {
         let var = sub_args.value_of("path");
         let path = if var.is_some() {
@@ -270,7 +269,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(sub_args) = matches.subcommand_matches("serve") {
         let cwd = std::env::current_dir().unwrap();
-        let mdbook_bin = cwd.join(bin_dir.join("mdbook.exe"));
+        let mdbook_bin = cwd.join(bin_dir.join(get_mdbook()));
         let var = sub_args.value_of("book");
         if var.is_some() {
             let var = var.unwrap().to_string();
@@ -307,7 +306,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     if let Some(sub_args) = matches.subcommand_matches("build") {
         let cwd = std::env::current_dir().unwrap();
-        let mdbook_bin = cwd.join(bin_dir.join("mdbook.exe"));
+        let mdbook_bin = cwd.join(bin_dir.join(get_mdbook()));
         let var = sub_args.value_of("book");
         if var.is_some() {
             let var = var.unwrap().to_string();
@@ -361,6 +360,9 @@ fn handle_preprocessing(pre: PreType) -> Result<(), Error> {
     } else if pre == PreType::Authors {
         let processed_book = Authors.run(&ctx, book)?;
         serde_json::to_writer(io::stdout(), &processed_book)?;
+    } else if pre == PreType::Toc {
+        let processed_book = Toc.run(&ctx, book)?;
+        serde_json::to_writer(io::stdout(), &processed_book)?;
     }
 
     Ok(())
@@ -369,15 +371,19 @@ fn handle_preprocessing(pre: PreType) -> Result<(), Error> {
 fn handle_supports(pre: PreType, sub_args: &ArgMatches) -> ! {
     let renderer = sub_args.value_of("renderer").expect("Required argument");
     let supported;
-
     if pre == PreType::ReplacePaths {
         supported = ReplacePaths.supports_renderer(renderer);
     } else if pre == PreType::AutoDoc {
         supported = AutoDoc.supports_renderer(renderer);
     } else if pre == PreType::AutoInclude {
         supported = AutoInclude.supports_renderer(renderer);
-    } else {
+    } else if pre == PreType::Authors {
         supported = Authors.supports_renderer(renderer);
+    } else if pre == PreType::Toc {
+        supported = Toc.supports_renderer(&renderer);
+    } else {
+        eprintln!("Error");
+        supported = false;
     }
 
     // Signal whether the renderer is supported by exiting with 1 or 0.
