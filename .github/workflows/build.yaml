@@ -46,3 +46,14 @@ jobs:
           files: | 
             **/windows/*.exe
             **/linux/tmbook
+  clean-up:
+    if: ${{ always() }}
+    needs: [build,package]
+    name: cleanup
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: geekyeggo/delete-artifact@v1
+      with:
+        name: |
+          build-Windows
+          build-Linux
