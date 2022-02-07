@@ -12,6 +12,9 @@ use std::io::{self, BufRead, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
 
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+
 use crate::utility::get_clang_format;
 pub struct AutoInclude;
 
@@ -144,6 +147,12 @@ fn process_term(
 fn process_clang_format(source: String) -> String {
     // TODO: fix the hardcoded path!
     let bin_dir = get_clang_format(None);
+
+    #[cfg(unix)]
+    {
+        std::fs::set_permissions(bin_dir, std::fs::Permissions::from_mode(0o777)).unwrap();
+    }
+
     let mut child = Command::new(bin_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
