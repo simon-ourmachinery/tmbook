@@ -150,7 +150,7 @@ fn process_clang_format(source: String) -> String {
 
     #[cfg(unix)]
     {
-        std::fs::set_permissions(bin_dir, std::fs::Permissions::from_mode(0o777)).unwrap();
+        std::fs::set_permissions(&bin_dir, std::fs::Permissions::from_mode(0o777)).unwrap();
     }
 
     let mut child = Command::new(bin_dir)
