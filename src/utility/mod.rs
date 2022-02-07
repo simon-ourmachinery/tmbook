@@ -93,12 +93,14 @@ pub fn check_and_set_or_download_book_code_snippets(code_snippets_path: &Path) {
                         "TM_BOOK_CODE_SNIPPETS",
                         std::fs::canonicalize(&code_snippets_path)
                             .unwrap()
+                            .join("examples")
                             .as_os_str(),
                     );
                     println!(
                         "TM_BOOK_CODE_SNIPPETS: {:?}",
                         std::fs::canonicalize(&code_snippets_path)
                             .unwrap()
+                            .join("examples")
                             .as_os_str()
                     );
                 }
