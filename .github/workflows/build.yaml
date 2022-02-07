@@ -3,9 +3,11 @@ name: Build
 on: workflow_dispatch
 
 jobs:
-  build-debug:
-    name: Build and Package Engine
-    runs-on: windows-latest
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ windows-latest,ubuntu-20.04]
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -15,11 +17,26 @@ jobs:
         with:
           command: build
           args: --release --all-features
-      - run: |
-          ls
-          ls target
-          ls target/release
-          ls ${{github.workspace}}/target/release/tmbook.exe
+      - name: Archive bin folder
+        uses: actions/upload-artifact@v2
+        with:
+          name: build-${{ runner.os }}
+          path: |
+            ${{github.workspace}}/target/release
+  package:
+    needs: [build]
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Download Linux
+        uses: actions/download-artifact@v2
+        with:
+          path: ${{github.workspace}}/linux
+          name: build-Linux
+      - name: Download Windows
+        uses: actions/download-artifact@v2
+        with:
+          path: ${{github.workspace}}/windows
+          name: build-Windows
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
@@ -27,4 +44,5 @@ jobs:
           title: "Release"
           prerelease: false
           files: | 
-            **/target/release/*.exe
+            **/windows/*.exe
+            **/linux/tmbook
