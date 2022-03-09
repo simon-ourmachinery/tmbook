@@ -24,7 +24,7 @@ pub struct Term {
 pub struct AutoDoc;
 
 pub fn load_config() -> HashMap<String, Term> {
-    let path = "../terms.json";
+    let path = "./terms.json";
     let data = fs::read_to_string(path).expect("Unable to read file");
     let terms: Vec<Term> = serde_json::from_str(&data).expect("Unable to parse");
     let mut res = HashMap::<String, Term>::new();

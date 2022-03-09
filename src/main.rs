@@ -6,9 +6,9 @@ use git2::Repository;
 use mdbook::errors::Error;
 use mdbook::preprocess::{CmdPreprocessor, Preprocessor};
 use mdbook_toc::Toc;
-use std::path::{Path, PathBuf};
+use std::io;
+use std::path::Path;
 use std::process::{self, Stdio};
-use std::{fs, io};
 use utility::{
     check_and_set_or_download_book_code_snippets, get_bin_dir, get_clang_format_url, get_mdbook,
     get_mdbook_linkcheck_url, get_mdbook_toc_url, get_mdbook_url,
@@ -90,24 +90,8 @@ pub fn make_app() -> App<'static> {
                 .about("Downloads the book repo if not present")
                 .arg(Arg::new("path").required(false)),
         )
-        .subcommand(
-            App::new("serve")
-                .about("Call mdbook serve in the current folder")
-                .arg(
-                    Arg::new("book")
-                        .required(false)
-                        .possible_values(["the_machinery_book", "tutorials"]),
-                ),
-        )
-        .subcommand(
-            App::new("build")
-                .about("Call mdbook build in the current folder")
-                .arg(
-                    Arg::new("book")
-                        .required(false)
-                        .possible_values(["the_machinery_book", "tutorials"]),
-                ),
-        )
+        .subcommand(App::new("serve").about("Call mdbook serve in the current folder"))
+        .subcommand(App::new("build").about("Call mdbook build in the current folder"))
         .arg(
             Arg::new("bin-path")
                 .long("bin-path")
@@ -120,28 +104,6 @@ pub fn make_app() -> App<'static> {
         .subcommand(authors)
         .subcommand(toc)
         .subcommand(linkcheck)
-}
-
-fn find_book(book: &String, current_dir: &Path) -> Option<PathBuf> {
-    for entry in fs::read_dir(current_dir).unwrap() {
-        if entry.is_ok() {
-            let e = entry.unwrap();
-            let path = e.path();
-            if path.as_path().file_name().unwrap() == book.as_str() {
-                return Some(path);
-            }
-            if e.file_type().unwrap().is_dir() {
-                let res = find_book(book, path.as_path());
-                if res.is_some() {
-                    println!("{:?}", res);
-                    return res;
-                }
-            }
-        } else {
-            continue;
-        }
-    }
-    return None;
 }
 
 #[tokio::main]
@@ -267,20 +229,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
     }
 
-    if let Some(sub_args) = matches.subcommand_matches("serve") {
+    if let Some(_) = matches.subcommand_matches("serve") {
         let cwd = std::env::current_dir().unwrap();
         let mdbook_bin = cwd.join(bin_dir.join(get_mdbook()));
-        let var = sub_args.value_of("book");
-        if var.is_some() {
-            let var = var.unwrap().to_string();
-            let current_dir = find_book(&var, &cwd);
-            if current_dir.is_some() {
-                std::env::set_current_dir(current_dir.unwrap()).expect("Could not find the folder");
-            } else {
-                std::env::set_current_dir(std::env::current_dir().unwrap())
-                    .expect("Could not find the folder");
-            }
-        }
         let mut child = Command::new(mdbook_bin)
             .arg("serve")
             .stdin(Stdio::piped())
@@ -304,20 +255,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("{}", line);
         }
     }
-    if let Some(sub_args) = matches.subcommand_matches("build") {
+    if let Some(_) = matches.subcommand_matches("build") {
         let cwd = std::env::current_dir().unwrap();
         let mdbook_bin = cwd.join(bin_dir.join(get_mdbook()));
-        let var = sub_args.value_of("book");
-        if var.is_some() {
-            let var = var.unwrap().to_string();
-            let current_dir = find_book(&var, &cwd);
-            if current_dir.is_some() {
-                std::env::set_current_dir(current_dir.unwrap()).expect("Could not find the folder");
-            } else {
-                std::env::set_current_dir(std::env::current_dir().unwrap())
-                    .expect("Could not find the folder");
-            }
-        }
         let mut child = Command::new(mdbook_bin)
             .arg("build")
             .stdin(Stdio::piped())
