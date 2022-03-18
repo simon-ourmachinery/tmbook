@@ -167,7 +167,29 @@ fn process_clang_format(source: String) -> String {
     String::from_utf8(output.stdout).unwrap()
 }
 
+fn find_broken(chapter: &String){
+
+        let mut regex = r"\{\{insert_code\(([/aA-zZ_.0-9]+),([/aA-zZ_0-9]+)\}\}";
+        let mut re = Regex::new(regex).unwrap();
+        let str = chapter.clone();
+        let res = if re.is_match(&str) {
+            re.captures_iter(&str)
+        } else {
+            regex = r"\{\{insert_code\(([/aA-zZ_.0-9]+),([/aA-zZ_0-9]+),([aA-zZ_0-9]+)\}\}";
+            re = Regex::new(regex).unwrap();
+            re.captures_iter(&str)
+        };
+        if re.is_match(&str) {
+            for cap in res {
+            eprint!("Warning: There is an incorrect tag: {:?}\n", cap[0].to_string());
+            }
+    }
+}
+
 fn find_term(mut chapter: String) -> String {
+
+    find_broken(&chapter);
+
     let mut regex = r"\{\{insert_code\(([/aA-zZ_.0-9]+),([/aA-zZ_0-9]+)\)\}\}";
     let mut re = Regex::new(regex).unwrap();
     let str = chapter.clone();
@@ -181,7 +203,9 @@ fn find_term(mut chapter: String) -> String {
     if re.is_match(&str) {
         for cap in res {
             let requested_tag = cap[2].to_string();
-            let path = replace_env(cap[1].to_string());
+            let path_formated = cap[1].to_string().replace("/",std::path::MAIN_SEPARATOR.to_string().as_str());
+            let path_formated = path_formated.replace("\\",std::path::MAIN_SEPARATOR.to_string().as_str());
+            let path = replace_env(path_formated);
             let path = Path::new(&path);
             if path.exists() {
                 if let Ok(lines) = read_lines(path) {
@@ -190,7 +214,7 @@ fn find_term(mut chapter: String) -> String {
                     chapter = chapter.replace(&cap[0], content.as_str());
                 }
             } else {
-                eprint!("Path: {:?} does not exist!\n", path);
+                eprint!("Warning: Path: {:?} does not exist!\n", path);
             }
         }
     } else {
@@ -199,7 +223,9 @@ fn find_term(mut chapter: String) -> String {
         let results = nre.captures_iter(&str);
         for cap in results {
             let mut tag_content = Vec::<String>::new();
-            let path = replace_env(cap[1].to_string());
+            let path_formated = cap[1].to_string().replace("/",std::path::MAIN_SEPARATOR.to_string().as_str());
+            let path_formated = path_formated.replace("\\",std::path::MAIN_SEPARATOR.to_string().as_str());
+            let path = replace_env(path_formated);
             let path = Path::new(&path);
             if path.exists() {
                 if let Ok(lines) = read_lines(path) {
@@ -213,6 +239,8 @@ fn find_term(mut chapter: String) -> String {
                 }
                 let content = tag_content.join("\n");
                 chapter = chapter.replace(&cap[0], content.as_str());
+            }else{
+                eprint!("Warning: Path: {:?} does not exist!\n", path);
             }
         }
     }
